@@ -144,12 +144,12 @@
                     let content = escapeHtml(msg.message_content || '');
 
                     if (msg.photo_file_id) {
-                        // 1. Create the link
-                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
+                        // 🛑 FIX: Use the native 'tg://' protocol
+                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
                         
-                        // 2. Use the Telegram Bridge
-                        // This bypasses the popup blocker because it's a native command
-                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
+                        // 🛑 FIX: Use 'window.location.href'
+                        // This forces the Mini App to hand the link to the OS immediately.
+                        content += `<br><div onclick="window.location.href='${deepLink}'" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
                     
                     const html = `
@@ -177,6 +177,7 @@
     </script>
 </body>
 </html>
+
 
 
 
