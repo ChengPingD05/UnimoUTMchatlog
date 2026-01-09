@@ -142,12 +142,13 @@
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
-                    
-                    // EVIDENCE LINK (The "Simple" Version that works)
+
                     if (msg.photo_file_id) {
-                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
-                        // We use target="_blank" to ensure it breaks out of the webview if needed
-                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 🛑 CHANGE 1: Use 'tg://resolve' instead of 'https://t.me'
+                        // This forces the Telegram App to handle the command directly
+                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
+                        
+                        content += `<br><a href="${deepLink}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
                     const html = `
@@ -175,4 +176,5 @@
     </script>
 </body>
 </html>
+
 
