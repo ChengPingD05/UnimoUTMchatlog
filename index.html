@@ -8,28 +8,18 @@
     <style>
         :root { --bg: #000; --green: #00ff41; --dim: #004411; --alert: #ff0000; }
         body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 10px; margin: 0; padding-bottom: 50px; font-size: 13px; }
-        
-        /* Loading Animation */
         #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; }
-        
-        /* Messages */
         .msg { margin-bottom: 15px; border-left: 2px solid #333; padding-left: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
         .meta { font-size: 10px; opacity: 0.7; margin-bottom: 4px; display: flex; justify-content: space-between; }
         .bubble { background: #111; padding: 8px; border-radius: 0 4px 4px 0; word-wrap: break-word; }
-        
-        /* Role Colors */
         .me .bubble { border-left: 2px solid var(--green); background: #001a05; }
         .them .bubble { border-left: 2px solid #ff00ff; color: #e0e0e0; background: #1a001a; }
-        
-        /* Evidence Button */
         .btn-ev {
             display: inline-block; margin-top: 8px; padding: 6px 10px;
             border: 1px dashed var(--green); color: var(--green);
             text-decoration: none; font-size: 11px; font-weight: bold;
             background: rgba(0,255,65,0.1); cursor: pointer;
         }
-        .btn-ev:active { background: var(--green); color: black; }
-        
         @keyframes fadeIn { to { opacity: 1; } }
     </style>
 </head>
@@ -45,29 +35,45 @@
     </div>
 
     <script>
-        // 🛑 CONFIG 
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('loader').innerHTML = 
+                `<span style="color:red; font-weight:bold;">
+                > CRITICAL ERROR:<br>${message}<br>Line: ${lineno}
+                </span>`;
+            return true;
+        };
+    </script>
+
+    <script>
+        // 🛑 CONFIG
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
         const BOT_HANDLE = 'UnimoUTMBot'; 
 
         // 1. Initialize Client as 'db'
-        const db = supabase.createClient(API_URL, API_KEY);
+        let db;
+        try {
+            db = supabase.createClient(API_URL, API_KEY);
+        } catch (e) {
+            throw new Error("Supabase Client Failed: " + e.message);
+        }
         
         const params = new URLSearchParams(window.location.search);
-        const TOKEN = params.get('token');   // No underscore
-        const MY_ID = params.get('user_id'); // No underscore
+        const TOKEN = params.get('token');
+        const MY_ID = params.get('user_id');
 
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 2. GET RIDE DETAILS (Using 'db', not 'supabase')
+            // 2. GET RIDE DETAILS
             const { data: rideData, error: rideError } = await db
                 .from('rides')
                 .select('ride_id, driver_id, passenger_id')
                 .eq('access_token', TOKEN)
                 .single();
 
-            if (rideError || !rideData) return die("INVALID_TOKEN");
+            if (rideError) return die("DB_ERROR: " + JSON.stringify(rideError));
+            if (!rideData) return die("INVALID_TOKEN (No Ride Found)");
             
             const RIDE_ID = rideData.ride_id;
             document.getElementById('ride-disp').innerText = RIDE_ID;
@@ -83,7 +89,7 @@
                 if (names) {
                     names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
                 }
-            } catch (e) { console.log("Name fetch failed:", e); }
+            } catch (e) { console.log("Name fetch warning:", e); }
 
             // 4. FETCH LOGS
             const { data: logs, error: logError } = await db
@@ -92,7 +98,7 @@
                 .eq('ride_id', RIDE_ID)
                 .order('created_at', { ascending: true });
 
-            if (logError) return die("DB_READ_ERROR");
+            if (logError) return die("LOG_FETCH_ERROR: " + logError.message);
 
             // 5. RENDER
             document.getElementById('loader').style.display = 'none';
@@ -100,7 +106,7 @@
             
             const container = document.getElementById('logs');
             
-            if (logs.length === 0) {
+            if (!logs || logs.length === 0) {
                 container.innerHTML = "<div>> NO DATA FOUND.</div>";
                 return;
             }
@@ -108,12 +114,14 @@
             logs.forEach((msg, i) => {
                 setTimeout(() => {
                     const isMe = (msg.sender_id == MY_ID);
-                    
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
                     displayName = displayName.toUpperCase();
-
                     const typeClass = isMe ? 'me' : 'them';
-                    const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                    
+                    let time = "--:--";
+                    try {
+                        time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                    } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
                     
@@ -143,7 +151,10 @@
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        init();
+        // Run Init
+        init().catch(e => {
+            die("RUNTIME_ERROR: " + e.message);
+        });
     </script>
 </body>
 </html>
