@@ -146,12 +146,12 @@
 
                     // 🛑 RESTORED & FIXED: EVIDENCE BUTTON
                     if (msg.photo_file_id) {
-                        // FIX: Use 'log_' prefix and 'msg.log_id' (Short ID)
-                        // Make sure your Supabase column is actually named 'log_id'. If it is 'id', change this to msg.id
                         const deepLink = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id}`; 
                         
-                        // FIX: Use target="_blank" for reliable app switching
-                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 🛑 UX UPGRADE: Show the ID on the button
+                        // OLD: 📷 REQUEST EVIDENCE
+                        // NEW: 📷 EVIDENCE #1054
+                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id}</a>`;
                     }
                     
                     const html = `
@@ -179,3 +179,4 @@
     </script>
 </body>
 </html>
+
