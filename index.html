@@ -91,9 +91,14 @@
                     
                     let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
                     
+                    // EVIDENCE BUTTON
                     if (msg.photo_file_id) {
-                        // 🛑 USE MSG.ID (Short) NOT PHOTO_FILE_ID (Long)
-                        content += `<br><div onclick="forceEvidenceRequest('${msg.id}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
+                        // 🛑 FIX: Use msg.log_id instead of msg.id
+                        // (Ensure this matches the column name in Supabase exactly!)
+                        const deepLink = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id}`;
+                        
+                        // Use target="_blank" to ensure reliable opening
+                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
                     const html = `
@@ -111,3 +116,4 @@
     </script>
 </body>
 </html>
+
