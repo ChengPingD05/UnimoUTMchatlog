@@ -143,12 +143,14 @@
                     
                     let content = escapeHtml(msg.message_content || '');
 
-                    if (msg.photo_file_id) {
-                        // 🛑 FIX: Use the native 'tg://' protocol
+                   if (msg.photo_file_id) {
+                        // 🛑 FIX 1: Use the Native Protocol 'tg://resolve'
+                        // This tells the OS "Find the Telegram App and run this command"
                         const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
                         
-                        // 🛑 FIX: Use 'window.location.href'
-                        // This forces the Mini App to hand the link to the OS immediately.
+                        // 🛑 FIX 2: Use 'window.location.href'
+                        // This forces the browser to hand off the request to the OS immediately.
+                        // We DO NOT use Telegram.WebApp.openTelegramLink here.
                         content += `<br><div onclick="window.location.href='${deepLink}'" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
                     
@@ -177,6 +179,7 @@
     </script>
 </body>
 </html>
+
 
 
 
