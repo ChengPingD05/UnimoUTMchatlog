@@ -58,13 +58,14 @@
         const _UID = params.get('user_id');
 
         async function init() {
-            if (!_TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
+            if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 1. GET RIDE DETAILS (Now asking for driver/passenger IDs too)
-            const { data: rideData, error: rideError } = await db
+            // 1. GET RIDE DETAILS
+            // We use 'supabase' (not db) and 'TOKEN' (not _TOKEN)
+            const { data: rideData, error: rideError } = await supabase
                 .from('rides')
                 .select('ride_id, driver_id, passenger_id')
-                .eq('access_token', _TOKEN)
+                .eq('access_token', TOKEN)
                 .single();
 
             if (rideError || !rideData) return die("INVALID_TOKEN");
@@ -72,22 +73,22 @@
             const RIDE_ID = rideData.ride_id;
             document.getElementById('ride-disp').innerText = RIDE_ID;
 
-            // 2. FETCH NAMES (Parallel Lookup)
-            // We fetch the names for the driver and passenger from our SAFE VIEW
+            // 2. FETCH NAMES (The New Part)
             let nameMap = {};
             try {
-                const { data: names } = await db
+                // Fetch from the VIEW we created
+                const { data: names } = await supabase
                     .from('public_names')
                     .select('user_id, full_name')
                     .in('user_id', [rideData.driver_id, rideData.passenger_id]);
                 
                 if (names) {
-                    names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); // Store First Name only
+                    names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
                 }
-            } catch (e) { console.log("Name fetch failed, using fallback"); }
+            } catch (e) { console.log("Name fetch failed:", e); }
 
             // 3. FETCH LOGS
-            const { data: logs, error: logError } = await db
+            const { data: logs, error: logError } = await supabase
                 .from('chat_logs')
                 .select('*')
                 .eq('ride_id', RIDE_ID)
@@ -108,15 +109,11 @@
 
             logs.forEach((msg, i) => {
                 setTimeout(() => {
-                    const isMe = (msg.sender_id == _UID);
+                    // FIX: Use 'MY_ID' (not _UID)
+                    const isMe = (msg.sender_id == MY_ID);
                     
-                    // 🛑 NAME LOGIC
-                    // If it's me -> "ME"
-                    // If we found the name -> "ALI"
-                    // If unknown -> "PARTNER"
+                    // FIX: Name Logic
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
-                    
-                    // Force UPPERCASE for terminal vibe
                     displayName = displayName.toUpperCase();
 
                     const typeClass = isMe ? 'me' : 'them';
@@ -125,7 +122,7 @@
                     let content = escapeHtml(msg.message_content || '');
                     
                     if (msg.photo_file_id) {
-                        const link = `https://t.me/${_BOT_HANDLE}?start=img_${msg.photo_file_id}`;
+                        const link = `https://t.me/${BOT_USERNAME}?start=img_${msg.photo_file_id}`;
                         content += `<br><a href="${link}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
