@@ -143,13 +143,13 @@
                     
                     let content = escapeHtml(msg.message_content || '');
 
-                    // EVIDENCE LINK (Universal Web Method)
                     if (msg.photo_file_id) {
-                        // 1. Use standard HTTPS link (Works on all phones)
+                        // 1. Create the link
                         const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
                         
-                        // 2. target="_blank" forces it out of the Mini App
-                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 2. Use the Telegram Bridge
+                        // This bypasses the popup blocker because it's a native command
+                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
                     
                     const html = `
@@ -177,6 +177,7 @@
     </script>
 </body>
 </html>
+
 
 
 
