@@ -62,7 +62,7 @@
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
         
-        // 🛑 FIX 2: YOUR CORRECT BOT HANDLE (No @)
+        // 🛑 BOT HANDLE
         const BOT_HANDLE = 'chengtechtest_bot'; 
 
         // Initialize Client
@@ -75,27 +75,31 @@
                 window.Telegram.WebApp.expand();
             }
         } catch (e) {
-            throw new Error("Init Failed: " + e.message);
+            // Ignore init errors if not critical
+            console.log(e);
         }
         
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
 
-        // 🛑 FIX 3: THE EXTERNAL LOOPBACK FUNCTION
-        // This forces the link to open in a browser, then bounce back to Telegram.
-        // It bypasses the "Same-Bot Silent Fail" issue.
+        // 🛑 FUNCTION: Force External Navigation
+        // This opens the link in the browser, which then bounces back to Telegram.
+        // This bypasses the "Silent Fail" when linking to the same bot.
         function forceEvidenceRequest(fileId) {
             const url = `https://t.me/${BOT_HANDLE}?start=img_${fileId}`;
             
             document.getElementById('loader').style.display = 'block';
-            document.getElementById('loader').innerText = "> REQUESTING EVIDENCE...";
+            document.getElementById('loader').innerHTML = "<br>> REQUESTING EVIDENCE...<br>> CHECK YOUR CHAT LIST.";
 
-            // Open in External Browser (try_instant_view: false forces the browser)
-            Telegram.WebApp.openLink(url, {try_instant_view: false});
-            
-            // Close the Mini App so the user sees the chat
-            Telegram.WebApp.close();
+            // Method 1: Try SDK OpenLink (External)
+            if(window.Telegram && window.Telegram.WebApp) {
+                Telegram.WebApp.openLink(url, {try_instant_view: false});
+                Telegram.WebApp.close(); // Close Mini App to reveal chat
+            } else {
+                // Method 2: Fallback to Window Location
+                window.location.href = url;
+            }
         }
 
         async function init() {
