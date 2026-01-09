@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SECURE ARCHIVE</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --bg: #000; --green: #00ff41; --dim: #004411; --alert: #ff0000; }
+        body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 10px; margin: 0; padding-bottom: 50px; font-size: 13px; }
+        
+        /* Loading Animation */
+        #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; }
+        
+        /* Messages */
+        .msg { margin-bottom: 15px; border-left: 2px solid #333; padding-left: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .meta { font-size: 10px; opacity: 0.7; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .bubble { background: #111; padding: 8px; border-radius: 0 4px 4px 0; word-wrap: break-word; }
+        
+        /* Role Colors */
+        .me .bubble { border-left: 2px solid var(--green); background: #001a05; }
+        .them .bubble { border-left: 2px solid #ff00ff; color: #e0e0e0; background: #1a001a; }
+        
+        /* Evidence Button */
+        .btn-ev {
+            display: inline-block; margin-top: 8px; padding: 6px 10px;
+            border: 1px dashed var(--green); color: var(--green);
+            text-decoration: none; font-size: 11px; font-weight: bold;
+            background: rgba(0,255,65,0.1); cursor: pointer;
+        }
+        .btn-ev:active { background: var(--green); color: black; }
+        
+        @keyframes fadeIn { to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="loader">> ESTABLISHING SECURE CONNECTION...</div>
+    <div id="terminal" style="display:none;">
+        <div style="border-bottom: 1px dashed #333; padding-bottom: 5px; margin-bottom: 10px;">
+            > SECURE_LOGS_V2<br>
+            > ID: <span id="ride-disp">AUTHENTICATING...</span>
+        </div>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        // 🛑 SECURITY CONFIG (Renamed to look generic)
+        const _API_ENDPOINT = 'YOUR_URL_HERE'; 
+        const _API_KEY = 'YOUR_ANON_KEY_HERE'; 
+        const _BOT_HANDLE = 'UnimoBot'; // No @ symbol
+
+        // Initialize Client (We call it 'db' instead of 'supabase')
+        const db = supabase.createClient(_API_ENDPOINT, _API_KEY);
+        const params = new URLSearchParams(window.location.search);
+        
+        const _TOKEN = params.get('token');
+        const _UID = params.get('user_id');
+
+        async function init() {
+            if (!_TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
+
+            // 1. SECURITY HOP: Exchange Token for Ride ID
+            const { data: rideData, error: rideError } = await db
+                .from('rides')
+                .select('ride_id')
+                .eq('access_token', _TOKEN)
+                .single();
+
+            if (rideError || !rideData) return die("INVALID_TOKEN");
+            
+            const RIDE_ID = rideData.ride_id;
+            document.getElementById('ride-disp').innerText = RIDE_ID;
+
+            // 2. FETCH LOGS using the authorized ID
+            const { data: logs, error: logError } = await db
+                .from('chat_logs')
+                .select('*')
+                .eq('ride_id', RIDE_ID)
+                .order('created_at', { ascending: true });
+
+            if (logError) return die("DB_READ_ERROR");
+
+            // 3. RENDER
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('terminal').style.display = 'block';
+            
+            const container = document.getElementById('logs');
+            
+            if (logs.length === 0) {
+                container.innerHTML = "<div>> NO DATA FOUND.</div>";
+                return;
+            }
+
+            logs.forEach((msg, i) => {
+                setTimeout(() => {
+                    const isMe = (msg.sender_id == _UID);
+                    const typeClass = isMe ? 'me' : 'them';
+                    const senderLabel = isMe ? 'ME' : 'PARTNER';
+                    const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                    
+                    let content = escapeHtml(msg.message_content || '');
+                    
+                    // EVIDENCE BUTTON
+                    if (msg.photo_file_id) {
+                        const link = `https://t.me/${_BOT_HANDLE}?start=img_${msg.photo_file_id}`;
+                        content += `<br><a href="${link}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                    }
+
+                    const html = `
+                        <div class="msg ${typeClass}">
+                            <div class="meta"><span>${senderLabel}</span><span>${time}</span></div>
+                            <div class="bubble">${content}</div>
+                        </div>`;
+                    
+                    container.insertAdjacentHTML('beforeend', html);
+                    window.scrollTo(0, document.body.scrollHeight);
+                }, i * 50); // Cascade effect
+            });
+        }
+
+        function die(reason) {
+            document.getElementById('loader').innerHTML = `<span style="color:red">> FATAL ERROR: ${reason}</span>`;
+        }
+
+        function escapeHtml(text) {
+            if(!text) return "";
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        init();
+    </script>
+</body>
+</html>
