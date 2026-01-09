@@ -6,25 +6,22 @@
     <title>SECURE ARCHIVE</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         :root { --bg: #000; --green: #00ff41; --dim: #004411; --alert: #ff0000; }
         body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 10px; margin: 0; padding-bottom: 50px; font-size: 13px; }
         
-        /* Loading Animation */
         #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; }
         
-        /* Messages */
         .msg { margin-bottom: 15px; border-left: 2px solid #333; padding-left: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
         .meta { font-size: 10px; opacity: 0.7; margin-bottom: 4px; display: flex; justify-content: space-between; }
         .bubble { background: #111; padding: 8px; border-radius: 0 4px 4px 0; word-wrap: break-word; }
         
-        /* Role Colors */
         .me .bubble { border-left: 2px solid var(--green); background: #001a05; }
         .them .bubble { border-left: 2px solid #ff00ff; color: #e0e0e0; background: #1a001a; }
         
-        /* Evidence Button */
         .btn-ev {
             display: inline-block; margin-top: 8px; padding: 6px 10px;
             border: 1px dashed var(--green); color: var(--green);
@@ -62,7 +59,7 @@
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
         
-        // 🛑 BOT HANDLE
+        // 🛑 YOUR BOT HANDLE (No @)
         const BOT_HANDLE = 'chengtechtest_bot'; 
 
         // Initialize Client
@@ -74,30 +71,30 @@
                 window.Telegram.WebApp.ready();
                 window.Telegram.WebApp.expand();
             }
-        } catch (e) {
-            // Ignore init errors if not critical
-            console.log(e);
-        }
+        } catch (e) { console.log(e); }
         
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
 
-        // 🛑 FUNCTION: Force External Navigation
-        // This opens the link in the browser, which then bounces back to Telegram.
-        // This bypasses the "Silent Fail" when linking to the same bot.
+        // 🛑 THE FIX: EXTERNAL LOOPBACK
+        // This opens the link in the phone's browser, which immediately bounces back to Telegram.
+        // This is the only way to guarantee the /start command fires in the same bot.
         function forceEvidenceRequest(fileId) {
             const url = `https://t.me/${BOT_HANDLE}?start=img_${fileId}`;
             
-            document.getElementById('loader').style.display = 'block';
-            document.getElementById('loader').innerHTML = "<br>> REQUESTING EVIDENCE...<br>> CHECK YOUR CHAT LIST.";
+            document.getElementById('loader').innerHTML = 
+                "<br>> REQUESTING EVIDENCE...<br>> SWITCHING APPS...";
 
-            // Method 1: Try SDK OpenLink (External)
+            // Use the SDK to open an external link
             if(window.Telegram && window.Telegram.WebApp) {
+                // try_instant_view: false forces the External Browser
                 Telegram.WebApp.openLink(url, {try_instant_view: false});
-                Telegram.WebApp.close(); // Close Mini App to reveal chat
+                
+                // Optional: Close the Mini App so the user sees the chat immediately
+                // Telegram.WebApp.close(); 
             } else {
-                // Method 2: Fallback to Window Location
+                // Fallback for testing in normal browser
                 window.location.href = url;
             }
         }
@@ -105,7 +102,7 @@
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 1. GET RIDE DETAILS (Secure RPC)
+            // 1. GET RIDE DETAILS
             const { data: rideData, error: rideError } = await db
                 .rpc('get_ride_by_token', { token_input: TOKEN }); 
             
@@ -124,11 +121,8 @@
                     .from('public_names')
                     .select('user_id, full_name')
                     .in('user_id', [ride.driver_id, ride.passenger_id]);
-                
-                if (names) {
-                    names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
-                }
-            } catch (e) { console.log("Name warning:", e); }
+                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
+            } catch (e) {}
 
             // 3. FETCH LOGS
             const { data: logs, error: logError } = await db
@@ -137,7 +131,7 @@
                 .eq('ride_id', RIDE_ID)
                 .order('created_at', { ascending: true });
 
-            if (logError) return die("LOG_FETCH_ERROR: " + logError.message);
+            if (logError) return die("LOG_FETCH_ERROR");
 
             // 4. RENDER
             document.getElementById('loader').style.display = 'none';
@@ -152,7 +146,6 @@
             logs.forEach((msg, i) => {
                 setTimeout(() => {
                     const isMe = (msg.sender_id == MY_ID);
-                    
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
                     displayName = displayName.toUpperCase();
                     const typeClass = isMe ? 'me' : 'them';
@@ -160,14 +153,12 @@
                     let time = "--:--";
                     try { 
                         const d = new Date(msg.created_at);
-                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
-                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                        time = `${dateStr} ${timeStr}`;
+                        time = `${d.getDate()}/${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
                     
-                    // EVIDENCE BUTTON (Uses the new forceEvidenceRequest)
+                    // EVIDENCE BUTTON
                     if (msg.photo_file_id) {
                         content += `<br><div onclick="forceEvidenceRequest('${msg.photo_file_id}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
