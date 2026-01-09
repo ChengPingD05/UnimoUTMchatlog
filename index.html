@@ -66,11 +66,11 @@
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
             // 2. GET RIDE DETAILS
-            const { data: rideData, error: rideError } = await db
-                .from('rides')
-                .select('ride_id, driver_id, passenger_id')
-                .eq('access_token', TOKEN)
-                .single();
+            const { data: rpcData, error: rideError } = await db
+                .rpc('get_ride_by_token', { token_input: TOKEN });
+
+            // RPC returns an array, but we expect one result
+            const rideData = rpcData ? rpcData[0] : null;
 
             if (rideError) return die("DB_ERROR: " + JSON.stringify(rideError));
             if (!rideData) return die("INVALID_TOKEN (No Ride Found)");
