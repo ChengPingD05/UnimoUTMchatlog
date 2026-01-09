@@ -142,15 +142,16 @@
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
-
+                   // EVIDENCE LINK
+                    
                     if (msg.photo_file_id) {
-                        // 🛑 CHANGE 1: Use 'tg://resolve' instead of 'https://t.me'
-                        // This forces the Telegram App to handle the command directly
-                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
+                        // 1. Construct the Deep Link
+                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
                         
-                        content += `<br><a href="${deepLink}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 2. Use the Official Telegram SDK method
+                        // This tells the Mini App: "Close yourself and open this chat"
+                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
-
                     const html = `
                         <div class="msg ${typeClass}">
                             <div class="meta"><span>${displayName}</span><span>${time}</span></div>
@@ -176,5 +177,6 @@
     </script>
 </body>
 </html>
+
 
 
