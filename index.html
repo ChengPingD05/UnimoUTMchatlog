@@ -45,24 +45,23 @@
     </div>
 
     <script>
-        // 🛑 SECURITY CONFIG (Renamed to look generic)
-        const _API_ENDPOINT = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
-        const _API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
-        const _BOT_HANDLE = 'UnimoUTMBot'; // No @ symbol
+        // 🛑 CONFIG 
+        const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+        const BOT_HANDLE = 'UnimoUTMBot'; 
 
-        // Initialize Client (We call it 'db' instead of 'supabase')
-        const db = supabase.createClient(_API_ENDPOINT, _API_KEY);
-        const params = new URLSearchParams(window.location.search);
+        // 1. Initialize Client as 'db'
+        const db = supabase.createClient(API_URL, API_KEY);
         
-        const _TOKEN = params.get('token');
-        const _UID = params.get('user_id');
+        const params = new URLSearchParams(window.location.search);
+        const TOKEN = params.get('token');   // No underscore
+        const MY_ID = params.get('user_id'); // No underscore
 
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 1. GET RIDE DETAILS
-            // We use 'supabase' (not db) and 'TOKEN' (not _TOKEN)
-            const { data: rideData, error: rideError } = await supabase
+            // 2. GET RIDE DETAILS (Using 'db', not 'supabase')
+            const { data: rideData, error: rideError } = await db
                 .from('rides')
                 .select('ride_id, driver_id, passenger_id')
                 .eq('access_token', TOKEN)
@@ -73,11 +72,10 @@
             const RIDE_ID = rideData.ride_id;
             document.getElementById('ride-disp').innerText = RIDE_ID;
 
-            // 2. FETCH NAMES (The New Part)
+            // 3. FETCH NAMES
             let nameMap = {};
             try {
-                // Fetch from the VIEW we created
-                const { data: names } = await supabase
+                const { data: names } = await db
                     .from('public_names')
                     .select('user_id, full_name')
                     .in('user_id', [rideData.driver_id, rideData.passenger_id]);
@@ -87,8 +85,8 @@
                 }
             } catch (e) { console.log("Name fetch failed:", e); }
 
-            // 3. FETCH LOGS
-            const { data: logs, error: logError } = await supabase
+            // 4. FETCH LOGS
+            const { data: logs, error: logError } = await db
                 .from('chat_logs')
                 .select('*')
                 .eq('ride_id', RIDE_ID)
@@ -96,7 +94,7 @@
 
             if (logError) return die("DB_READ_ERROR");
 
-            // 4. RENDER
+            // 5. RENDER
             document.getElementById('loader').style.display = 'none';
             document.getElementById('terminal').style.display = 'block';
             
@@ -109,10 +107,8 @@
 
             logs.forEach((msg, i) => {
                 setTimeout(() => {
-                    // FIX: Use 'MY_ID' (not _UID)
                     const isMe = (msg.sender_id == MY_ID);
                     
-                    // FIX: Name Logic
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
                     displayName = displayName.toUpperCase();
 
@@ -122,7 +118,7 @@
                     let content = escapeHtml(msg.message_content || '');
                     
                     if (msg.photo_file_id) {
-                        const link = `https://t.me/${BOT_USERNAME}?start=img_${msg.photo_file_id}`;
+                        const link = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
                         content += `<br><a href="${link}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
