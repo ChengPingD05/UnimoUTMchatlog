@@ -5,24 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SECURE ARCHIVE</title>
     
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         :root { --bg: #000; --green: #00ff41; --dim: #004411; --alert: #ff0000; }
         body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 10px; margin: 0; padding-bottom: 50px; font-size: 13px; }
+        
+        /* Loading Animation */
         #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; }
+        
+        /* Messages */
         .msg { margin-bottom: 15px; border-left: 2px solid #333; padding-left: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
         .meta { font-size: 10px; opacity: 0.7; margin-bottom: 4px; display: flex; justify-content: space-between; }
         .bubble { background: #111; padding: 8px; border-radius: 0 4px 4px 0; word-wrap: break-word; }
+        
+        /* Role Colors */
         .me .bubble { border-left: 2px solid var(--green); background: #001a05; }
         .them .bubble { border-left: 2px solid #ff00ff; color: #e0e0e0; background: #1a001a; }
+        
+        /* Evidence Button */
         .btn-ev {
             display: inline-block; margin-top: 8px; padding: 6px 10px;
             border: 1px dashed var(--green); color: var(--green);
             text-decoration: none; font-size: 11px; font-weight: bold;
             background: rgba(0,255,65,0.1); cursor: pointer;
         }
+        .btn-ev:active { background: var(--green); color: black; }
+        
         @keyframes fadeIn { to { opacity: 1; } }
     </style>
 </head>
@@ -51,16 +60,12 @@
         // 🛑 CONFIG
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
-        const BOT_HANDLE = 'chengtechtest_bot'; 
+        const BOT_HANDLE = 'UnimoUTMBot'; 
 
         // Initialize Client
         let db;
         try {
             db = supabase.createClient(API_URL, API_KEY);
-            if(window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
-            }
         } catch (e) {
             throw new Error("Init Failed: " + e.message);
         }
@@ -72,6 +77,8 @@
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
+            // 1. GET RIDE DETAILS (Using the Secure RPC)
+            // This prevents the "driver_id does not exist" crash
             const { data: rideData, error: rideError } = await db
                 .rpc('get_ride_by_token', { token_input: TOKEN }); 
             
@@ -83,17 +90,20 @@
             const RIDE_ID = ride.ride_id;
             document.getElementById('ride-disp').innerText = RIDE_ID;
 
-            // FETCH NAMES
+            // 2. FETCH NAMES
             let nameMap = {};
             try {
                 const { data: names } = await db
                     .from('public_names')
                     .select('user_id, full_name')
                     .in('user_id', [ride.driver_id, ride.passenger_id]);
-                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
-            } catch (e) { console.log("Name warning:", e); }
+                
+                if (names) {
+                    names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
+                }
+            } catch (e) { console.log("Name fetch warning:", e); }
 
-            // FETCH LOGS
+            // 3. FETCH LOGS
             const { data: logs, error: logError } = await db
                 .from('chat_logs')
                 .select('*')
@@ -102,7 +112,7 @@
 
             if (logError) return die("LOG_FETCH_ERROR: " + logError.message);
 
-            // RENDER
+            // 4. RENDER
             document.getElementById('loader').style.display = 'none';
             document.getElementById('terminal').style.display = 'block';
             const container = document.getElementById('logs');
@@ -115,24 +125,28 @@
             logs.forEach((msg, i) => {
                 setTimeout(() => {
                     const isMe = (msg.sender_id == MY_ID);
+                    
+                    // NAME LOGIC
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
                     displayName = displayName.toUpperCase();
+                    
                     const typeClass = isMe ? 'me' : 'them';
                     
-                    // 🕒 TIMESTAMP LOGIC (Date + Time)
+                    // DATE + TIME LOGIC (e.g. 10/01 14:30)
                     let time = "--:--";
                     try { 
                         const d = new Date(msg.created_at);
-                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }); // 10/01
-                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); // 14:30
+                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                         time = `${dateStr} ${timeStr}`;
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
                     
+                    // EVIDENCE LINK (The "Simple" Version that works)
                     if (msg.photo_file_id) {
                         const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
-                        // FIX: Use window.open with _blank. This forces the OS to handle the link.
+                        // We use target="_blank" to ensure it breaks out of the webview if needed
                         content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
@@ -160,5 +174,4 @@
         init().catch(e => die("RUNTIME_ERROR: " + e.message));
     </script>
 </body>
-
 </html>
