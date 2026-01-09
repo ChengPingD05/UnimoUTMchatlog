@@ -132,7 +132,8 @@
                     
                     if (msg.photo_file_id) {
                         const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
-                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
+                        // FIX: Use window.open with _blank. This forces the OS to handle the link.
+                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
                     const html = `
@@ -159,4 +160,5 @@
         init().catch(e => die("RUNTIME_ERROR: " + e.message));
     </script>
 </body>
+
 </html>
