@@ -73,6 +73,20 @@
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
+        // 🛠️ HELPER: Force External Navigation to trigger the command
+        function forceEvidenceRequest(fileId) {
+            const url = `https://t.me/${BOT_HANDLE}?start=img_${fileId}`;
+            
+            // Debug text on screen so you know you clicked it
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('loader').innerText = "> REQUESTING EVIDENCE...";
+
+            // 1. Open in External Browser (Force Fresh Intent)
+            Telegram.WebApp.openLink(url, {try_instant_view: false});
+            
+            // 2. Close the Mini App (So you can see the chat)
+            Telegram.WebApp.close();
+        }
 
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
@@ -143,15 +157,10 @@
                     
                     let content = escapeHtml(msg.message_content || '');
 
-                   if (msg.photo_file_id) {
-                        // 🛑 FIX 1: Use the Native Protocol 'tg://resolve'
-                        // This tells the OS "Find the Telegram App and run this command"
-                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
-                        
-                        // 🛑 FIX 2: Use 'window.location.href'
-                        // This forces the browser to hand off the request to the OS immediately.
-                        // We DO NOT use Telegram.WebApp.openTelegramLink here.
-                        content += `<br><div onclick="window.location.href='${deepLink}'" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
+                    // EVIDENCE BUTTON
+                    if (msg.photo_file_id) {
+                        // We call the helper function onclick
+                        content += `<br><div onclick="forceEvidenceRequest('${msg.photo_file_id}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
                     
                     const html = `
@@ -179,9 +188,6 @@
     </script>
 </body>
 </html>
-
-
-
 
 
 
