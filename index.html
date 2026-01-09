@@ -142,15 +142,14 @@
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
-                   // EVIDENCE LINK
-                    
+
+                    // EVIDENCE LINK (Universal Web Method)
                     if (msg.photo_file_id) {
-                        // 🛑 CHANGE: Use 'tg://resolve'. 
-                        // This forces the Telegram App to switch chats immediately.
-                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
+                        // 1. Use standard HTTPS link (Works on all phones)
+                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
                         
-                        // We use a standard link <a>. It cannot fail.
-                        content += `<br><a href="${deepLink}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 2. target="_blank" forces it out of the Mini App
+                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
                     
                     const html = `
@@ -178,6 +177,7 @@
     </script>
 </body>
 </html>
+
 
 
 
