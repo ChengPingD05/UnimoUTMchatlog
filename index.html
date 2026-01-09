@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SECURE ARCHIVE</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
         :root { --bg: #000; --green: #00ff41; --dim: #004411; --alert: #ff0000; }
         body { background: var(--bg); color: var(--green); font-family: 'Courier New', monospace; padding: 10px; margin: 0; padding-bottom: 50px; font-size: 13px; }
@@ -28,7 +31,7 @@
     <div id="loader">> ESTABLISHING SECURE CONNECTION...</div>
     <div id="terminal" style="display:none;">
         <div style="border-bottom: 1px dashed #333; padding-bottom: 5px; margin-bottom: 10px;">
-            > UNIMO_SECURE_LOGS_V1<br>
+            > SECURE_LOGS_V2<br>
             > RIDE ID: <span id="ride-disp">AUTHENTICATING...</span>
         </div>
         <div id="logs"></div>
@@ -50,12 +53,16 @@
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
         const BOT_HANDLE = 'chengtechtest_bot'; 
 
-        // 1. Initialize Client as 'db'
+        // Initialize Client
         let db;
         try {
             db = supabase.createClient(API_URL, API_KEY);
+            if(window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+            }
         } catch (e) {
-            throw new Error("Supabase Client Failed: " + e.message);
+            throw new Error("Init Failed: " + e.message);
         }
         
         const params = new URLSearchParams(window.location.search);
@@ -65,33 +72,28 @@
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 2. GET RIDE DETAILS
-            const { data: rpcData, error: rideError } = await db
-                .rpc('get_ride_by_token', { token_input: TOKEN });
-
-            // RPC returns an array, but we expect one result
-            const rideData = rpcData ? rpcData[0] : null;
+            const { data: rideData, error: rideError } = await db
+                .rpc('get_ride_by_token', { token_input: TOKEN }); 
+            
+            const ride = rideData ? rideData[0] : null;
 
             if (rideError) return die("DB_ERROR: " + JSON.stringify(rideError));
-            if (!rideData) return die("INVALID_TOKEN (No Ride Found)");
+            if (!ride) return die("INVALID_TOKEN (No Ride Found)");
             
-            const RIDE_ID = rideData.ride_id;
+            const RIDE_ID = ride.ride_id;
             document.getElementById('ride-disp').innerText = RIDE_ID;
 
-            // 3. FETCH NAMES
+            // FETCH NAMES
             let nameMap = {};
             try {
                 const { data: names } = await db
                     .from('public_names')
                     .select('user_id, full_name')
-                    .in('user_id', [rideData.driver_id, rideData.passenger_id]);
-                
-                if (names) {
-                    names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
-                }
-            } catch (e) { console.log("Name fetch warning:", e); }
+                    .in('user_id', [ride.driver_id, ride.passenger_id]);
+                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
+            } catch (e) { console.log("Name warning:", e); }
 
-            // 4. FETCH LOGS
+            // FETCH LOGS
             const { data: logs, error: logError } = await db
                 .from('chat_logs')
                 .select('*')
@@ -100,10 +102,9 @@
 
             if (logError) return die("LOG_FETCH_ERROR: " + logError.message);
 
-            // 5. RENDER
+            // RENDER
             document.getElementById('loader').style.display = 'none';
             document.getElementById('terminal').style.display = 'block';
-            
             const container = document.getElementById('logs');
             
             if (!logs || logs.length === 0) {
@@ -118,16 +119,20 @@
                     displayName = displayName.toUpperCase();
                     const typeClass = isMe ? 'me' : 'them';
                     
+                    // 🕒 TIMESTAMP LOGIC (Date + Time)
                     let time = "--:--";
-                    try {
-                        time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false});
+                    try { 
+                        const d = new Date(msg.created_at);
+                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }); // 10/01
+                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); // 14:30
+                        time = `${dateStr} ${timeStr}`;
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
                     
                     if (msg.photo_file_id) {
-                        const link = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
-                        content += `<br><a href="${link}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
+                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
 
                     const html = `
@@ -151,10 +156,7 @@
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        // Run Init
-        init().catch(e => {
-            die("RUNTIME_ERROR: " + e.message);
-        });
+        init().catch(e => die("RUNTIME_ERROR: " + e.message));
     </script>
 </body>
 </html>
