@@ -131,8 +131,11 @@
                     // target="_blank" tells the webview "Open this in the main app/browser"
                     // https://t.me/ is the standard protocol that always works.
                     if (msg.photo_file_id) {
-                        const link = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
-                        content += `<br><a href="${link}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
+                        // 🛑 CHANGE: We use 'msg.id' (Short) instead of 'msg.photo_file_id' (Too Long)
+                        // This keeps the link under 64 characters so Telegram doesn't block it.
+                        const deepLink = `https://t.me/${BOT_HANDLE}?start=log_${msg.id}`;
+                        
+                        content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
 
                     const html = `
@@ -160,3 +163,4 @@
     </script>
 </body>
 </html>
+
