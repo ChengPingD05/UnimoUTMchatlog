@@ -145,13 +145,14 @@
                    // EVIDENCE LINK
                     
                     if (msg.photo_file_id) {
-                        // 1. Construct the Deep Link
-                        const deepLink = `https://t.me/${BOT_HANDLE}?start=img_${msg.photo_file_id}`;
+                        // 🛑 CHANGE: Use 'tg://resolve'. 
+                        // This forces the Telegram App to switch chats immediately.
+                        const deepLink = `tg://resolve?domain=${BOT_HANDLE}&start=img_${msg.photo_file_id}`;
                         
-                        // 2. Use the Official Telegram SDK method
-                        // This tells the Mini App: "Close yourself and open this chat"
-                        content += `<br><div onclick="Telegram.WebApp.openTelegramLink('${deepLink}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
+                        // We use a standard link <a>. It cannot fail.
+                        content += `<br><a href="${deepLink}" class="btn-ev">📷 REQUEST EVIDENCE</a>`;
                     }
+                    
                     const html = `
                         <div class="msg ${typeClass}">
                             <div class="meta"><span>${displayName}</span><span>${time}</span></div>
@@ -177,6 +178,7 @@
     </script>
 </body>
 </html>
+
 
 
 
