@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SECURE ARCHIVE</title>
     
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
@@ -60,12 +61,19 @@
         // 🛑 CONFIG
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+        
+        // 🛑 FIX 2: YOUR CORRECT BOT HANDLE (No @)
         const BOT_HANDLE = 'chengtechtest_bot'; 
 
         // Initialize Client
         let db;
         try {
             db = supabase.createClient(API_URL, API_KEY);
+            // Tell Telegram we are ready
+            if(window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+            }
         } catch (e) {
             throw new Error("Init Failed: " + e.message);
         }
@@ -73,26 +81,27 @@
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
-        // 🛠️ HELPER: Force External Navigation to trigger the command
+
+        // 🛑 FIX 3: THE EXTERNAL LOOPBACK FUNCTION
+        // This forces the link to open in a browser, then bounce back to Telegram.
+        // It bypasses the "Same-Bot Silent Fail" issue.
         function forceEvidenceRequest(fileId) {
             const url = `https://t.me/${BOT_HANDLE}?start=img_${fileId}`;
             
-            // Debug text on screen so you know you clicked it
             document.getElementById('loader').style.display = 'block';
             document.getElementById('loader').innerText = "> REQUESTING EVIDENCE...";
 
-            // 1. Open in External Browser (Force Fresh Intent)
+            // Open in External Browser (try_instant_view: false forces the browser)
             Telegram.WebApp.openLink(url, {try_instant_view: false});
             
-            // 2. Close the Mini App (So you can see the chat)
+            // Close the Mini App so the user sees the chat
             Telegram.WebApp.close();
         }
 
         async function init() {
             if (!TOKEN) return die("ACCESS_DENIED: MISSING_TOKEN");
 
-            // 1. GET RIDE DETAILS (Using the Secure RPC)
-            // This prevents the "driver_id does not exist" crash
+            // 1. GET RIDE DETAILS (Secure RPC)
             const { data: rideData, error: rideError } = await db
                 .rpc('get_ride_by_token', { token_input: TOKEN }); 
             
@@ -115,7 +124,7 @@
                 if (names) {
                     names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
                 }
-            } catch (e) { console.log("Name fetch warning:", e); }
+            } catch (e) { console.log("Name warning:", e); }
 
             // 3. FETCH LOGS
             const { data: logs, error: logError } = await db
@@ -140,13 +149,10 @@
                 setTimeout(() => {
                     const isMe = (msg.sender_id == MY_ID);
                     
-                    // NAME LOGIC
                     let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
                     displayName = displayName.toUpperCase();
-                    
                     const typeClass = isMe ? 'me' : 'them';
                     
-                    // DATE + TIME LOGIC (e.g. 10/01 14:30)
                     let time = "--:--";
                     try { 
                         const d = new Date(msg.created_at);
@@ -156,13 +162,12 @@
                     } catch(e) {}
                     
                     let content = escapeHtml(msg.message_content || '');
-
-                    // EVIDENCE BUTTON
+                    
+                    // EVIDENCE BUTTON (Uses the new forceEvidenceRequest)
                     if (msg.photo_file_id) {
-                        // We call the helper function onclick
                         content += `<br><div onclick="forceEvidenceRequest('${msg.photo_file_id}')" class="btn-ev">📷 REQUEST EVIDENCE</div>`;
                     }
-                    
+
                     const html = `
                         <div class="msg ${typeClass}">
                             <div class="meta"><span>${displayName}</span><span>${time}</span></div>
@@ -188,8 +193,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
