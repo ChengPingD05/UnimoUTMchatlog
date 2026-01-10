@@ -9,10 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* 🎨 NATIVE THEME VARIABLES (Auto-detects Light/Dark) */
+        /* 🎨 1. TELEGRAM THEME VARIABLES */
         :root {
             --bg: var(--tg-theme-bg-color, #000000);
-            --text: var(--tg-theme-text-color, #00ff41); /* Default to Hacker Green if theme fails */
+            --text: var(--tg-theme-text-color, #ffffff);
             --hint: var(--tg-theme-hint-color, #888888);
             --accent: var(--tg-theme-button-color, #2481cc);
             --accent-text: var(--tg-theme-button-text-color, #ffffff);
@@ -21,7 +21,7 @@
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Courier New', Courier, monospace; /* ⚡ FAST RENDER FONT */
+            font-family: 'Courier New', Courier, monospace; /* Console Font */
             margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px;
             line-height: 1.4;
         }
@@ -31,19 +31,18 @@
             color: var(--hint); font-weight: bold;
         }
 
-        /* CONSOLE HEADER */
         .terminal-header {
             border-bottom: 1px dashed var(--hint);
             padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
         }
 
-        /* RAW TEXT LOGS (Faster than bubbles) */
+        /* 🚀 2. CONSOLE LAYOUT (No Bubbles, Fast Read) */
         .msg {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             display: flex; flex-direction: column;
-            border-left: 2px solid transparent; 
+            border-left: 3px solid transparent; 
             padding-left: 10px;
-            opacity: 0; animation: fadeIn 0.1s forwards; /* Instant feel */
+            /* No Animation Delay -> Loads Instantly */
         }
 
         .meta {
@@ -51,48 +50,37 @@
             color: var(--hint); display: flex; justify-content: space-between;
         }
 
-        /* MARKERS */
-        .me { border-left-color: var(--accent); }     /* Blue line for Me */
-        .them { border-left-color: var(--hint); }     /* Grey line for Them */
+        /* Role Indicators */
+        .me { border-left-color: var(--accent); }     /* Blue/Green line */
+        .them { border-left-color: var(--hint); }     /* Grey line */
         
         .content { word-wrap: break-word; white-space: pre-wrap; }
 
-        /* EVIDENCE BUTTON (Minimalist) */
         .btn-ev {
             margin-top: 5px; padding: 4px 8px; font-size: 10px; 
             color: var(--accent); border: 1px solid var(--accent);
             cursor: pointer; display: inline-block; text-transform: uppercase;
+            text-decoration: none;
         }
-
-        @keyframes fadeIn { to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div id="loader">> ESTABLISHING SECURE CONNECTION...</div>
+    <div id="loader">> ESTABLISHING CONNECTION...</div>
     <div id="terminal" style="display:none;">
-        <div style="border-bottom: 1px dashed #333; padding-bottom: 5px; margin-bottom: 10px;">
+        <div class="terminal-header">
             > SECURE_LOGS_V2<br>
-            > RIDE ID: <span id="ride-disp">AUTHENTICATING...</span>
+            > RIDE ID: <span id="ride-disp">...</span>
         </div>
         <div id="logs"></div>
     </div>
 
     <script>
-        window.onerror = function(message, source, lineno, colno, error) {
-            document.getElementById('loader').innerHTML = 
-                `<span style="color:red; font-weight:bold;">
-                > CRITICAL ERROR:<br>${message}<br>Line: ${lineno}
-                </span>`;
-            return true;
-        };
-    </script>
-
-    <script>
         // 🛑 CONFIG
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
-        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+        const API_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ⚠️ PASTE YOUR KEY HERE
         const BOT_HANDLE = 'chengtechtest_bot'; 
+
         const db = supabase.createClient(API_URL, API_KEY);
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
@@ -140,7 +128,6 @@
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
         }
 
-
         async function init() {
             if (!TOKEN) return die("NO ACCESS TOKEN");
 
@@ -180,17 +167,11 @@
               .subscribe();
         }
 
-
         function die(reason) {
-            document.getElementById('loader').innerHTML = `<span style="color:red">> FATAL ERROR: ${reason}</span>`;
+            document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`;
         }
 
-        function escapeHtml(text) {
-            if(!text) return "";
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-
-        init().catch(e => die("RUNTIME_ERROR: " + e.message));
+        init();
     </script>
 </body>
 </html>
