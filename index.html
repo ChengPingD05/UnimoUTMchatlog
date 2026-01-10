@@ -9,85 +9,59 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
-        /* 🎨 THEME MAPPING: TERMINAL STYLE ADAPTED TO TELEGRAM */
+        /* 🎨 NATIVE THEME VARIABLES (Auto-detects Light/Dark) */
         :root {
-            --bg: var(--tg-theme-bg-color, #ffffff);
-            --text: var(--tg-theme-text-color, #000000);
+            --bg: var(--tg-theme-bg-color, #000000);
+            --text: var(--tg-theme-text-color, #00ff41); /* Default to Hacker Green if theme fails */
             --hint: var(--tg-theme-hint-color, #888888);
-            --link: var(--tg-theme-link-color, #2481cc);
-            --btn: var(--tg-theme-button-color, #2481cc);
-            --btn-text: var(--tg-theme-button-text-color, #ffffff);
+            --accent: var(--tg-theme-button-color, #2481cc);
+            --accent-text: var(--tg-theme-button-text-color, #ffffff);
         }
 
         body {
-            background: var(--bg);
+            background-color: var(--bg);
             color: var(--text);
-            font-family: 'Courier New', Courier, monospace; /* Keeps the console vibe */
-            padding: 12px;
-            margin: 0;
-            padding-bottom: 60px;
-            font-size: 13px;
+            font-family: 'Courier New', Courier, monospace; /* ⚡ FAST RENDER FONT */
+            margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px;
             line-height: 1.4;
         }
-        
+
         #loader {
             position: fixed; top: 40%; left: 0; width: 100%; text-align: center;
             color: var(--hint); font-weight: bold;
         }
 
-        /* HEADER */
+        /* CONSOLE HEADER */
         .terminal-header {
             border-bottom: 1px dashed var(--hint);
-            padding-bottom: 8px;
-            margin-bottom: 15px;
-            color: var(--hint);
+            padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
         }
 
-        /* MESSAGES (Clean, minimal, no bubbles) */
+        /* RAW TEXT LOGS (Faster than bubbles) */
         .msg {
-            margin-bottom: 12px;
-            opacity: 0; animation: fadeIn 0.2s forwards;
+            margin-bottom: 10px;
             display: flex; flex-direction: column;
-        }
-        
-        .meta {
-            font-size: 10px;
-            margin-bottom: 2px;
-            color: var(--hint);
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .content {
+            border-left: 2px solid transparent; 
             padding-left: 10px;
-            border-left: 3px solid transparent;
-            word-wrap: break-word;
-            white-space: pre-wrap;
+            opacity: 0; animation: fadeIn 0.1s forwards; /* Instant feel */
         }
 
-        /* ROLE STYLING */
-        /* Me: Colored Border + Bold */
-        .me .content {
-            border-left-color: var(--btn);
-            font-weight: 600; 
+        .meta {
+            font-size: 10px; margin-bottom: 2px;
+            color: var(--hint); display: flex; justify-content: space-between;
         }
+
+        /* MARKERS */
+        .me { border-left-color: var(--accent); }     /* Blue line for Me */
+        .them { border-left-color: var(--hint); }     /* Grey line for Them */
         
-        /* Them: Grey Border */
-        .them .content {
-            border-left-color: var(--hint);
-        }
+        .content { word-wrap: break-word; white-space: pre-wrap; }
 
-        /* EVIDENCE BUTTON */
+        /* EVIDENCE BUTTON (Minimalist) */
         .btn-ev {
-            display: inline-block;
-            margin-top: 6px;
-            padding: 4px 8px;
-            font-size: 11px;
-            color: var(--btn-text);
-            background: var(--btn);
-            border-radius: 4px;
-            text-decoration: none;
-            cursor: pointer;
+            margin-top: 5px; padding: 4px 8px; font-size: 10px; 
+            color: var(--accent); border: 1px solid var(--accent);
+            cursor: pointer; display: inline-block; text-transform: uppercase;
         }
 
         @keyframes fadeIn { to { opacity: 1; } }
@@ -95,116 +69,70 @@
 </head>
 <body>
 
-    <div id="loader">> CONNECTING...</div>
-    
+    <div id="loader">> ESTABLISHING SECURE CONNECTION...</div>
     <div id="terminal" style="display:none;">
-        <div class="terminal-header">
-            > CONNECTION_ESTABLISHED<br>
-            > RIDE_ID: <span id="ride-disp">...</span>
+        <div style="border-bottom: 1px dashed #333; padding-bottom: 5px; margin-bottom: 10px;">
+            > SECURE_LOGS_V2<br>
+            > RIDE ID: <span id="ride-disp">AUTHENTICATING...</span>
         </div>
         <div id="logs"></div>
     </div>
 
     <script>
-        // 🟢 INIT TELEGRAM & THEME
+        window.onerror = function(message, source, lineno, colno, error) {
+            document.getElementById('loader').innerHTML = 
+                `<span style="color:red; font-weight:bold;">
+                > CRITICAL ERROR:<br>${message}<br>Line: ${lineno}
+                </span>`;
+            return true;
+        };
+    </script>
+
+    <script>
+        // 🛑 CONFIG
+        const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
+        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+        const BOT_HANDLE = 'chengtechtest_bot'; 
+        const db = supabase.createClient(API_URL, API_KEY);
+
+        // Initialize Client
+        let nameMap = {};
+
+        // Force Theme Apply
         if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-            // This forces the browser to paint using the native colors immediately
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
             document.documentElement.style.setProperty('--tg-theme-bg-color', Telegram.WebApp.backgroundColor);
             document.documentElement.style.setProperty('--tg-theme-text-color', Telegram.WebApp.textColor);
             document.documentElement.style.setProperty('--tg-theme-hint-color', Telegram.WebApp.hintColor);
             document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
-            document.documentElement.style.setProperty('--tg-theme-button-text-color', Telegram.WebApp.buttonTextColor);
         }
 
-        // 🛑 CONFIG
-        const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
-        const API_KEY = 'YOUR_SUPABASE_ANON_KEY'; // ⚠️ PASTE YOUR KEY HERE
-        const BOT_HANDLE = 'chengtechtest_bot'; 
-
-        const db = supabase.createClient(API_URL, API_KEY);
-        const params = new URLSearchParams(window.location.search);
-        const TOKEN = params.get('token');
-        const MY_ID = params.get('user_id');
-
-        let nameMap = {};
-
-        function forceEvidenceRequest(fileId) {
-            const url = `https://t.me/${BOT_HANDLE}?start=img_${fileId}`;
-            Telegram.WebApp.openLink(url, {try_instant_view: false});
-            Telegram.WebApp.close();
-        }
-
-        async function init() {
-            if (!TOKEN) return die("ACCESS_DENIED");
-
-            // 1. GET RIDE
-            const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
-            const ride = rideData ? rideData[0] : null;
-
-            if (rideError || !ride) return die("INVALID_TOKEN");
-            
-            document.getElementById('ride-disp').innerText = ride.ride_id;
-            const RIDE_ID = ride.ride_id;
-
-            // 2. FETCH NAMES
-            try {
-                const { data: names } = await db.from('public_names')
-                    .select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
-                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0].toUpperCase()); 
-            } catch (e) {}
-
-            // 3. FETCH EXISTING HISTORY
-            const { data: logs } = await db.from('chat_logs')
-                .select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
-
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('terminal').style.display = 'block';
-
-            if (logs) logs.forEach((msg, i) => setTimeout(() => appendMessage(msg), i * 20));
-
-            // ⚡ 4. DUAL REALTIME LISTENER ⚡
-            db.channel('chat_console')
-              // A. WATCH FOR NEW MESSAGES (Live Update)
-              .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
-                (payload) => {
-                    console.log("> INCOMING:", payload.new);
-                    appendMessage(payload.new);
-                }
-              )
-              // B. WATCH FOR EXIT COMMAND (Kill Switch)
-              .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'users', filter: `user_id=eq.${MY_ID}` },
-                (payload) => {
-                  if (payload.new.active_chat_id === null) {
-                      Telegram.WebApp.close();
-                  }
-                }
-              )
-              .subscribe();
-        }
-
+        // 🚀 FAST RENDERER (No Animation Delay)
+        // 🛠️ SHARED RENDERER: Used by both History load & Real-time updates
         function appendMessage(msg) {
             const container = document.getElementById('logs');
             const isMe = (msg.sender_id == MY_ID);
             
+            // 1. NAME LOGIC
             let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
+            displayName = displayName.toUpperCase();
             
+            // 2. DATE + TIME LOGIC (Moved here so live messages show time too)
             let time = "--:--";
             try { 
                 const d = new Date(msg.created_at);
+                const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
                 const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                time = timeStr;
+                time = `${dateStr} ${timeStr}`;
             } catch(e) {}
             
-            let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            
+            let content = escapeHtml(msg.message_content || '');
+
+            // 3. EVIDENCE LOGIC (Moved here so live photos show the button)
             if (msg.photo_file_id) {
-                content += `<br><div onclick="forceEvidenceRequest('${msg.photo_file_id}')" class="btn-ev">📷 VIEW EVIDENCE</div>`;
+                const deepLink = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id}`; 
+                content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id}</a>`;
             }
             
             const html = `
@@ -217,11 +145,57 @@
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
-        function die(reason) {
-            document.getElementById('loader').innerHTML = `<span style="color:var(--text)">> FATAL ERROR: ${reason}</span>`;
+
+        async function init() {
+            if (!TOKEN) return die("NO ACCESS TOKEN");
+
+            // 1. GET RIDE (Uses new text-based RPC)
+            const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
+            const ride = rideData ? rideData[0] : null;
+
+            if (rideError || !ride) return die("INVALID SESSION");
+            
+            document.getElementById('ride-disp').innerText = ride.ride_id;
+            const RIDE_ID = ride.ride_id;
+
+            // 2. FETCH NAMES
+            try {
+                const { data: names } = await db.from('public_names')
+                    .select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
+                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0].toUpperCase()); 
+            } catch (e) {}
+
+            // 3. LOAD HISTORY (Fast)
+            const { data: logs } = await db.from('chat_logs')
+                .select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
+
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('terminal').style.display = 'block';
+
+            // 🚀 NO TIMEOUTS = FAST LOAD
+            if (logs) logs.forEach(msg => appendMessage(msg));
+
+            // 4. REALTIME LISTENER
+            db.channel('console_live')
+              .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
+                (payload) => { appendMessage(payload.new); }
+              )
+              .subscribe();
         }
 
-        init();
+
+        function die(reason) {
+            document.getElementById('loader').innerHTML = `<span style="color:red">> FATAL ERROR: ${reason}</span>`;
+        }
+
+        function escapeHtml(text) {
+            if(!text) return "";
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        init().catch(e => die("RUNTIME_ERROR: " + e.message));
     </script>
 </body>
 </html>
