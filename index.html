@@ -131,6 +131,10 @@
         async function init() {
             if (!TOKEN) return die("NO ACCESS TOKEN");
 
+            const MY_ID = params.get('user_id');
+            
+            setupAutoClose(MY_ID)
+
             // 1. GET RIDE (Uses new text-based RPC)
             const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
             const ride = rideData ? rideData[0] : null;
@@ -165,6 +169,37 @@
                 (payload) => { appendMessage(payload.new); }
               )
               .subscribe();
+        }
+        // 🔌 AUTO-CLOSE FUNCTION
+        function setupAutoClose(userId) {
+            if (!userId) return;
+
+            console.log("🔌 Listening for disconnect signal for:", userId);
+
+            db.channel('auto-close-listener')
+            .on(
+                'postgres_changes',
+                {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'public_signals', // The safe table we created
+                filter: `user_id=eq.${userId}`
+                },
+                (payload) => {
+                // If is_active turns FALSE, kill the app
+                if (payload.new.is_active === false) {
+                    console.log("⛔ Chat ended. Closing...");
+                    
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.close();
+                    } else {
+                        // Fallback for browser testing
+                        document.body.innerHTML = "<h2 style='color:red; text-align:center; margin-top:50px'>⛔ CHAT DISCONNECTED</h2>";
+                    }
+                }
+                }
+            )
+            .subscribe();
         }
 
         function die(reason) {
