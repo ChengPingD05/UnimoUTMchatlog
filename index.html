@@ -76,106 +76,116 @@
     </div>
 
     <script>
-        // 🛑 CONFIG
-        const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
-        const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; // ⚠️ PASTE YOUR KEY HERE
-        const BOT_HANDLE = 'chengtechtest_bot'; 
+    // 1. GET PARAMETERS FIRST (CRITICAL FIX)
+    const params = new URLSearchParams(window.location.search);
+    const TOKEN = params.get('token');
+    const MY_ID = params.get('user_id');
 
-        const db = supabase.createClient(API_URL, API_KEY);
-        const params = new URLSearchParams(window.location.search);
-        const TOKEN = params.get('token');
-        const MY_ID = params.get('user_id');
-        let nameMap = {};
+    // 2. CONFIG
+    const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
+    const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+    const BOT_HANDLE = 'chengtechtest_bot'; 
 
-        // Force Theme Apply
-        if (window.Telegram && window.Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-            document.documentElement.style.setProperty('--tg-theme-bg-color', Telegram.WebApp.backgroundColor);
-            document.documentElement.style.setProperty('--tg-theme-text-color', Telegram.WebApp.textColor);
-            document.documentElement.style.setProperty('--tg-theme-hint-color', Telegram.WebApp.hintColor);
-            document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
-        }
-
-        // 🚀 FAST RENDERER FUNCTION
-        function appendMessage(msg) {
-            const container = document.getElementById('logs');
-            const isMe = (msg.sender_id == MY_ID);
-            
-            let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
-            
-            let time = "--:--";
-                    try { 
-                        const d = new Date(msg.created_at);
-                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
-                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                        time = `${dateStr} ${timeStr}`;
-                    } catch(e) {}
-            
-            let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            
-            if (msg.photo_file_id) {
-                // Link directly to bot start param
-                const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
-                content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
+    // 3. SECURE INITIALIZATION (With RLS Headers)
+    const db = supabase.createClient(API_URL, API_KEY, {
+        global: {
+            headers: {
+                'x-ride-token': TOKEN // Required for the RLS Policy
             }
-            
-            const html = `
-                <div class="msg ${isMe ? 'me' : 'them'}">
-                    <div class="meta"><span>${displayName}</span><span>${time}</span></div>
-                    <div class="content">${content}</div>
-                </div>`;
-            
-            container.insertAdjacentHTML('beforeend', html);
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
         }
+    });
 
-        async function init() {
-            if (!TOKEN) return die("NO ACCESS TOKEN");
+    let nameMap = {};
 
-            // 1. GET RIDE (Uses new text-based RPC)
-            const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
-            const ride = rideData ? rideData[0] : null;
+    // 4. THEME SYNC
+    if (window.Telegram && window.Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        document.documentElement.style.setProperty('--tg-theme-bg-color', Telegram.WebApp.backgroundColor);
+        document.documentElement.style.setProperty('--tg-theme-text-color', Telegram.WebApp.textColor);
+        document.documentElement.style.setProperty('--tg-theme-hint-color', Telegram.WebApp.hintColor);
+        document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
+    }
 
-            if (rideError || !ride) return die("INVALID SESSION");
-            
-            document.getElementById('ride-disp').innerText = ride.ride_id;
-            const RIDE_ID = ride.ride_id;
-
-            // 2. FETCH NAMES
-            try {
-                const { data: names } = await db.from('public_names')
-                    .select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
-                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0].toUpperCase()); 
-            } catch (e) {}
-
-            // 3. LOAD HISTORY (Fast)
-            const { data: logs } = await db.from('chat_logs')
-                .select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
-
-            document.getElementById('loader').style.display = 'none';
-            document.getElementById('terminal').style.display = 'block';
-
-            // 🚀 NO TIMEOUTS = FAST LOAD
-            if (logs) logs.forEach(msg => appendMessage(msg));
-
-            // 4. REALTIME LISTENER
-            db.channel('console_live')
-              .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
-                (payload) => { appendMessage(payload.new); }
-              )
-              .subscribe();
+    // 🚀 FAST RENDERER FUNCTION
+    function appendMessage(msg) {
+        const container = document.getElementById('logs');
+        const isMe = (String(msg.sender_id) === String(MY_ID));
+        
+        let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
+        displayName = displayName.toUpperCase();
+        
+        let time = "--:--";
+        try { 
+            const d = new Date(msg.created_at);
+            const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+            const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            time = `${dateStr} ${timeStr}`;
+        } catch(e) {}
+        
+        let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        
+        if (msg.photo_file_id) {
+            const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
+            content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
         }
+        
+        const html = `
+            <div class="msg ${isMe ? 'me' : 'them'}">
+                <div class="meta"><span>${displayName}</span><span>${time}</span></div>
+                <div class="content">${content}</div>
+            </div>`;
+        
+        container.insertAdjacentHTML('beforeend', html);
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+    }
 
-        function die(reason) {
-            document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`;
-        }
+    async function init() {
+        if (!TOKEN) return die("NO ACCESS TOKEN");
 
-        init();
-    </script>
+        // 1. GET RIDE (Uses RPC)
+        const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
+        const ride = rideData ? rideData[0] : null;
+
+        if (rideError || !ride) return die("INVALID SESSION");
+        
+        document.getElementById('ride-disp').innerText = ride.ride_id;
+        const RIDE_ID = ride.ride_id;
+
+        // 2. FETCH NAMES
+        try {
+            const { data: names } = await db.from('public_names')
+                .select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
+            if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
+        } catch (e) {}
+
+        // 3. LOAD HISTORY (Fast)
+        const { data: logs } = await db.from('chat_logs')
+            .select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
+
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('terminal').style.display = 'block';
+
+        if (logs) logs.forEach(msg => appendMessage(msg));
+
+        // 4. REALTIME LISTENER
+        db.channel('console_live')
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
+            (payload) => { appendMessage(payload.new); }
+          )
+          .subscribe();
+    }
+
+    function die(reason) {
+        document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`;
+    }
+
+    init();
+</script>
 </body>
 </html>
+
 
 
