@@ -4,92 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SECURE ARCHIVE</title>
-    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        /* 🎨 1. TELEGRAM THEME VARIABLES */
         :root {
             --bg: var(--tg-theme-bg-color, #000000);
             --text: var(--tg-theme-text-color, #ffffff);
             --hint: var(--tg-theme-hint-color, #888888);
             --accent: var(--tg-theme-button-color, #2481cc);
-            --accent-text: var(--tg-theme-button-text-color, #ffffff);
+            --status-off: #ff4444;
+            --status-on: #00ff41;
         }
-
         body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Courier New', Courier, monospace; /* Console Font */
-            margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px;
-            line-height: 1.4;
+            background-color: var(--bg); color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px; line-height: 1.4;
         }
-
-        #loader {
-            position: fixed; top: 40%; left: 0; width: 100%; text-align: center;
-            color: var(--hint); font-weight: bold;
-        }
-
-        .terminal-header {
-            border-bottom: 1px dashed var(--hint);
-            padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
-        }
-
-        /* 🚀 2. CONSOLE LAYOUT (No Bubbles, Fast Read) */
-        .msg {
-            margin-bottom: 12px;
-            display: flex; flex-direction: column;
-            border-left: 3px solid transparent; 
-            padding-left: 10px;
-            /* No Animation Delay -> Loads Instantly */
-        }
-
-        .meta {
-            font-size: 10px; margin-bottom: 2px;
-            color: var(--hint); display: flex; justify-content: space-between;
-        }
-
-        /* Role Indicators */
-        .me { border-left-color: var(--accent); }     /* Blue/Green line */
-        .them { border-left-color: var(--hint); }     /* Grey line */
-        
+        #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; color: var(--hint); font-weight: bold; }
+        .terminal-header { border-bottom: 1px dashed var(--hint); padding-bottom: 8px; margin-bottom: 15px; color: var(--hint); position: relative; }
+        #status-light { font-size: 9px; position: absolute; right: 0; top: 0; color: var(--status-off); }
+        .msg { margin-bottom: 12px; display: flex; flex-direction: column; border-left: 3px solid transparent; padding-left: 10px; }
+        .meta { font-size: 10px; margin-bottom: 2px; color: var(--hint); display: flex; justify-content: space-between; }
+        .me { border-left-color: var(--accent); }
+        .them { border-left-color: var(--hint); }
         .content { word-wrap: break-word; white-space: pre-wrap; }
-
-        .btn-ev {
-            margin-top: 5px; padding: 4px 8px; font-size: 10px; 
-            color: var(--accent); border: 1px solid var(--accent);
-            cursor: pointer; display: inline-block; text-transform: uppercase;
-            text-decoration: none;
-        }
+        .btn-ev { margin-top: 5px; padding: 4px 8px; font-size: 10px; color: var(--accent); border: 1px solid var(--accent); cursor: pointer; display: inline-block; text-transform: uppercase; text-decoration: none; }
     </style>
 </head>
 <body>
     <div id="loader">> ESTABLISHING CONNECTION...</div>
     <div id="terminal" style="display:none;">
-        <div class="terminal-header">> SECURE_LOGS_V2<br>> RIDE ID: <span id="ride-disp">...</span></div>
+        <div class="terminal-header">
+            > SECURE_LOGS_V2<br>> RIDE ID: <span id="ride-disp">...</span>
+            <div id="status-light">● DISCONNECTED</div>
+        </div>
         <div id="logs"></div>
     </div>
 
     <script>
-        // 1. GET PARAMETERS FIRST (CRITICAL FIX)
+        // 1. GET PARAMETERS FIRST (CRITICAL ORDER FIX)
         const params = new URLSearchParams(window.location.search);
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
 
-        // 2. CONFIG
+        // 2. INITIALIZE ONCE (WITH SECURITY HEADERS)
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; // ⚠️ PASTE YOUR KEY HERE
-        const BOT_HANDLE = 'chengtechtest_bot';  
+        const BOT_HANDLE = 'chengtechtest_bot'; 
 
-        // 3. SECURE INITIALIZATION (With RLS Headers)
         const db = supabase.createClient(API_URL, API_KEY, {
             global: { headers: { 'x-ride-token': TOKEN } }
         });
 
         let nameMap = {};
 
-        // 4. THEME SYNC
+        // 3. THEME SYNC
         if (window.Telegram && window.Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
@@ -140,10 +109,20 @@
 
             if (logs) logs.forEach(msg => appendMessage(msg));
 
-            db.channel('console_live')
+            // ⚡ REALTIME LISTENER WITH STATUS LIGHT
+            const channel = db.channel('console_live')
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` }, 
               (p) => { appendMessage(p.new); })
-              .subscribe();
+              .subscribe((status) => {
+                  const light = document.getElementById('status-light');
+                  if (status === 'SUBSCRIBED') {
+                      light.style.color = 'var(--status-on)';
+                      light.innerText = '● LIVE_CONNECTED';
+                  } else {
+                      light.style.color = 'var(--status-off)';
+                      light.innerText = '● CONNECTION_ERROR';
+                  }
+              });
         }
 
         function die(reason) { document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`; }
@@ -151,10 +130,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
