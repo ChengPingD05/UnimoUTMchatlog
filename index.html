@@ -94,8 +94,9 @@
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
         const BOT_HANDLE = 'chengtechtest_bot'; 
         const db = supabase.createClient(API_URL, API_KEY);
-
-        // Initialize Client
+        const params = new URLSearchParams(window.location.search);
+        const TOKEN = params.get('token');
+        const MY_ID = params.get('user_id');
         let nameMap = {};
 
         // Force Theme Apply
@@ -108,31 +109,25 @@
             document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
         }
 
-        // 🚀 FAST RENDERER (No Animation Delay)
-        // 🛠️ SHARED RENDERER: Used by both History load & Real-time updates
+        // 🚀 FAST RENDERER FUNCTION
         function appendMessage(msg) {
             const container = document.getElementById('logs');
             const isMe = (msg.sender_id == MY_ID);
             
-            // 1. NAME LOGIC
             let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
-            displayName = displayName.toUpperCase();
             
-            // 2. DATE + TIME LOGIC (Moved here so live messages show time too)
             let time = "--:--";
             try { 
                 const d = new Date(msg.created_at);
-                const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
-                const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                time = `${dateStr} ${timeStr}`;
+                time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
             } catch(e) {}
             
-            let content = escapeHtml(msg.message_content || '');
-
-            // 3. EVIDENCE LOGIC (Moved here so live photos show the button)
+            let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            
             if (msg.photo_file_id) {
-                const deepLink = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id}`; 
-                content += `<br><a href="${deepLink}" target="_blank" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id}</a>`;
+                // Link directly to bot start param
+                const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
+                content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
             }
             
             const html = `
@@ -142,7 +137,7 @@
                 </div>`;
             
             container.insertAdjacentHTML('beforeend', html);
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
         }
 
 
