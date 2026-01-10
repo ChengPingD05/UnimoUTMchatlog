@@ -4,61 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SECURE ARCHIVE</title>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
+        /* 🎨 1. TELEGRAM THEME VARIABLES */
         :root {
             --bg: var(--tg-theme-bg-color, #000000);
             --text: var(--tg-theme-text-color, #ffffff);
             --hint: var(--tg-theme-hint-color, #888888);
             --accent: var(--tg-theme-button-color, #2481cc);
-            --status-off: #ff4444;
-            --status-on: #00ff41;
+            --accent-text: var(--tg-theme-button-text-color, #ffffff);
         }
+
         body {
-            background-color: var(--bg); color: var(--text);
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px; line-height: 1.4;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace; /* Console Font */
+            margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px;
+            line-height: 1.4;
         }
-        #loader { position: fixed; top: 40%; left: 0; width: 100%; text-align: center; color: var(--hint); font-weight: bold; }
-        .terminal-header { border-bottom: 1px dashed var(--hint); padding-bottom: 8px; margin-bottom: 15px; color: var(--hint); position: relative; }
-        #status-light { font-size: 9px; position: absolute; right: 0; top: 0; color: var(--status-off); }
-        .msg { margin-bottom: 12px; display: flex; flex-direction: column; border-left: 3px solid transparent; padding-left: 10px; }
-        .meta { font-size: 10px; margin-bottom: 2px; color: var(--hint); display: flex; justify-content: space-between; }
-        .me { border-left-color: var(--accent); }
-        .them { border-left-color: var(--hint); }
+
+        #loader {
+            position: fixed; top: 40%; left: 0; width: 100%; text-align: center;
+            color: var(--hint); font-weight: bold;
+        }
+
+        .terminal-header {
+            border-bottom: 1px dashed var(--hint);
+            padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
+        }
+
+        /* 🚀 2. CONSOLE LAYOUT (No Bubbles, Fast Read) */
+        .msg {
+            margin-bottom: 12px;
+            display: flex; flex-direction: column;
+            border-left: 3px solid transparent; 
+            padding-left: 10px;
+            /* No Animation Delay -> Loads Instantly */
+        }
+
+        .meta {
+            font-size: 10px; margin-bottom: 2px;
+            color: var(--hint); display: flex; justify-content: space-between;
+        }
+
+        /* Role Indicators */
+        .me { border-left-color: var(--accent); }     /* Blue/Green line */
+        .them { border-left-color: var(--hint); }     /* Grey line */
+        
         .content { word-wrap: break-word; white-space: pre-wrap; }
-        .btn-ev { margin-top: 5px; padding: 4px 8px; font-size: 10px; color: var(--accent); border: 1px solid var(--accent); cursor: pointer; display: inline-block; text-transform: uppercase; text-decoration: none; }
+
+        .btn-ev {
+            margin-top: 5px; padding: 4px 8px; font-size: 10px; 
+            color: var(--accent); border: 1px solid var(--accent);
+            cursor: pointer; display: inline-block; text-transform: uppercase;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
+
     <div id="loader">> ESTABLISHING CONNECTION...</div>
     <div id="terminal" style="display:none;">
         <div class="terminal-header">
-            > SECURE_LOGS_V2<br>> RIDE ID: <span id="ride-disp">...</span>
-            <div id="status-light">● DISCONNECTED</div>
+            > SECURE_LOGS_V2<br>
+            > RIDE ID: <span id="ride-disp">...</span>
         </div>
         <div id="logs"></div>
     </div>
 
     <script>
-        // 1. GET PARAMETERS FIRST (CRITICAL ORDER FIX)
-        const params = new URLSearchParams(window.location.search);
-        const TOKEN = params.get('token');
-        const MY_ID = params.get('user_id');
-
-        // 2. INITIALIZE ONCE (WITH SECURITY HEADERS)
+        // 🛑 CONFIG
         const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
         const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; // ⚠️ PASTE YOUR KEY HERE
         const BOT_HANDLE = 'chengtechtest_bot'; 
 
-        const db = supabase.createClient(API_URL, API_KEY, {
-            global: { headers: { 'x-ride-token': TOKEN } }
-        });
-
+        const db = supabase.createClient(API_URL, API_KEY);
+        const params = new URLSearchParams(window.location.search);
+        const TOKEN = params.get('token');
+        const MY_ID = params.get('user_id');
         let nameMap = {};
 
-        // 3. THEME SYNC
+        // Force Theme Apply
         if (window.Telegram && window.Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
@@ -68,65 +97,84 @@
             document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
         }
 
+        // 🚀 FAST RENDERER FUNCTION
         function appendMessage(msg) {
             const container = document.getElementById('logs');
-            const isMe = (String(msg.sender_id) === String(MY_ID));
+            const isMe = (msg.sender_id == MY_ID);
+            
             let displayName = isMe ? 'ME' : (nameMap[msg.sender_id] || 'PARTNER');
             
             let time = "--:--";
-            try { 
-                const d = new Date(msg.created_at);
-                time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            } catch(e) {}
+                    try { 
+                        const d = new Date(msg.created_at);
+                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                        time = `${dateStr} ${timeStr}`;
+                    } catch(e) {}
             
             let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            
             if (msg.photo_file_id) {
-                content += `<br><a href="https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
+                // Link directly to bot start param
+                const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
+                content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
             }
             
-            const html = `<div class="msg ${isMe ? 'me' : 'them'}"><div class="meta"><span>${displayName.toUpperCase()}</span><span>${time}</span></div><div class="content">${content}</div></div>`;
+            const html = `
+                <div class="msg ${isMe ? 'me' : 'them'}">
+                    <div class="meta"><span>${displayName}</span><span>${time}</span></div>
+                    <div class="content">${content}</div>
+                </div>`;
+            
             container.insertAdjacentHTML('beforeend', html);
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
         }
 
         async function init() {
             if (!TOKEN) return die("NO ACCESS TOKEN");
+
+            // 1. GET RIDE (Uses new text-based RPC)
             const { data: rideData, error: rideError } = await db.rpc('get_ride_by_token', { token_input: TOKEN }); 
             const ride = rideData ? rideData[0] : null;
+
             if (rideError || !ride) return die("INVALID SESSION");
             
             document.getElementById('ride-disp').innerText = ride.ride_id;
             const RIDE_ID = ride.ride_id;
 
+            // 2. FETCH NAMES
             try {
-                const { data: names } = await db.from('public_names').select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
-                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0]); 
+                const { data: names } = await db.from('public_names')
+                    .select('user_id, full_name').in('user_id', [ride.driver_id, ride.passenger_id]);
+                if (names) names.forEach(n => nameMap[n.user_id] = n.full_name.split(' ')[0].toUpperCase()); 
             } catch (e) {}
 
-            const { data: logs } = await db.from('chat_logs').select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
+            // 3. LOAD HISTORY (Fast)
+            const { data: logs } = await db.from('chat_logs')
+                .select('*').eq('ride_id', RIDE_ID).order('created_at', { ascending: true });
+
             document.getElementById('loader').style.display = 'none';
             document.getElementById('terminal').style.display = 'block';
 
+            // 🚀 NO TIMEOUTS = FAST LOAD
             if (logs) logs.forEach(msg => appendMessage(msg));
 
-            // ⚡ REALTIME LISTENER WITH STATUS LIGHT
-            const channel = db.channel('console_live')
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` }, 
-              (p) => { appendMessage(p.new); })
-              .subscribe((status) => {
-                  const light = document.getElementById('status-light');
-                  if (status === 'SUBSCRIBED') {
-                      light.style.color = 'var(--status-on)';
-                      light.innerText = '● LIVE_CONNECTED';
-                  } else {
-                      light.style.color = 'var(--status-off)';
-                      light.innerText = '● CONNECTION_ERROR';
-                  }
-              });
+            // 4. REALTIME LISTENER
+            db.channel('console_live')
+              .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
+                (payload) => { appendMessage(payload.new); }
+              )
+              .subscribe();
         }
 
-        function die(reason) { document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`; }
+        function die(reason) {
+            document.getElementById('loader').innerHTML = `<span style="color:red">> ERROR: ${reason}</span>`;
+        }
+
         init();
     </script>
 </body>
 </html>
+
