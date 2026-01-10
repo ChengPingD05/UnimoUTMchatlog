@@ -78,11 +78,17 @@
     <script>
     // 1. GET PARAMETERS FIRST (CRITICAL FIX)
     // 1. GET PARAMS FIRST (Must be at the top!)
+    // 1. GRAB PARAMETERS IMMEDIATELY (Move this to the top!)
     const params = new URLSearchParams(window.location.search);
     const TOKEN = params.get('token');
     const MY_ID = params.get('user_id');
-    
-    // 2. NOW INITIALIZE (So TOKEN is not undefined)
+
+    // 2. CONFIG
+    const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
+    const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
+    const BOT_HANDLE = 'chengtechtest_bot'; 
+
+    // 3. SECURE INITIALIZATION (Now TOKEN is defined and will work)
     const db = supabase.createClient(API_URL, API_KEY, {
         global: {
             headers: {
@@ -91,13 +97,10 @@
         }
     });
     // 2. CONFIG
-    const API_URL = 'https://zvoywylatpccjpwvrrhz.supabase.co'; 
-    const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2b3l3eWxhdHBjY2pwd3Zycmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcwOTU5NzEsImV4cCI6MjA4MjY3MTk3MX0.fSoxr1kYwJfC7NBtJpisGhMiJL7LrTCZIp269k0XoKE'; 
-    const BOT_HANDLE = 'chengtechtest_bot'; 
 
     let nameMap = {};
 
-    // 4. THEME SYNC
+    // 4. TELEGRAM THEME SYNC
     if (window.Telegram && window.Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
@@ -186,6 +189,7 @@
 </script>
 </body>
 </html>
+
 
 
 
