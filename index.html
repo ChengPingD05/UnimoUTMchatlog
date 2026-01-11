@@ -25,7 +25,41 @@
             margin: 0; padding: 12px; padding-bottom: 60px; font-size: 13px;
             line-height: 1.4;
         }
+        /* === 🧱 NEW STICKY HEADER === */
+        #sticky-container {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background-color: var(--bg); /* Solid background so text doesnt show through */
+            border-bottom: 1px dashed var(--hint);
+            padding: 12px 12px 5px 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
 
+        .status-bar {
+            display: flex; 
+            justify-content: space-between; /* Pushes items to edges */
+            align-items: center;
+            margin-bottom: 8px; 
+            font-size: 11px; font-weight: bold;
+        }
+
+        /* Right align specific fix */
+        .status-right {
+            text-align: right;
+        }
+
+        .terminal-header {
+            color: var(--hint);
+            font-size: 10px;
+            margin-bottom: 5px;
+        }
+
+        /* === 📜 LOGS CONTAINER === */
+        #logs {
+            padding: 12px;
+        }
+        
         #loader {
             position: fixed; top: 40%; left: 0; width: 100%; text-align: center;
             color: var(--hint); font-weight: bold;
@@ -61,6 +95,7 @@
             color: var(--accent); border: 1px solid var(--accent);
             cursor: pointer; display: inline-block; text-transform: uppercase;
             text-decoration: none;
+        }
         
         .status-bar {
             display: flex; justify-content: space-between; align-items: center;
@@ -84,20 +119,39 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+
+        /* === 🚨 NEW MESSAGE BREATHING ANIMATION === */
+        @keyframes breathing-bg {
+            0% { background-color: rgba(36, 129, 204, 0.0); }
+            50% { background-color: rgba(36, 129, 204, 0.25); } /* Blue tint */
+            100% { background-color: rgba(36, 129, 204, 0.0); }
         }
+
+        .msg.unread {
+            animation: breathing-bg 1.5s infinite ease-in-out;
+            border-left: 3px solid #ff4d4d; /* Red border to indicate attention needed */
+        }
+        
+        
     </style>
 </head>
 <body>
 
     <div id="loader">> ESTABLISHING CONNECTION...</div>
+    
     <div id="terminal" style="display:none;">
-        <div id="status-header" class="status-bar">
-            <span>RIDE_ID: <span id="ride-disp">...</span></span>
-            <span id="status-badge">LOADING...</span>
+        <div id="sticky-container">
+            <div id="status-header" class="status-bar">
+                <span style="color: var(--hint)">RIDE_ID: <span id="ride-disp" style="color: var(--text)">...</span></span>
+                <div class="status-right">
+                    <span id="status-badge">LOADING...</span>
+                </div>
+            </div>
+            <div class="terminal-header">
+                > UNIMOUTM_CHATLOGS_V1
+            </div>
         </div>
-        <div class="terminal-header">
-            > UNIMOUTM_CHATLOGS_V1
-        </div>
+
         <div id="logs"></div>
     </div>
 
@@ -112,6 +166,19 @@
         const TOKEN = params.get('token');
         const MY_ID = params.get('user_id');
         let nameMap = {};
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Element is on screen.
+                    // Wait 2.5 seconds, then stop breathing.
+                    setTimeout(() => {
+                        entry.target.classList.remove('unread');
+                        observer.unobserve(entry.target); // Stop watching this msg
+                    }, 2500);
+                }
+            });
+        }, { threshold: 0.5 }); // Trigger when 50% of message is visible
 
         // Force Theme Apply
         if (window.Telegram && window.Telegram.WebApp) {
@@ -124,7 +191,7 @@
         }
 
         // 🚀 FAST RENDERER FUNCTION
-        function appendMessage(msg) {
+        function appendMessage(msg, isRealtime = false) {
             const container = document.getElementById('logs');
             const isMe = (msg.sender_id == MY_ID);
             
@@ -139,19 +206,24 @@
             let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
             
             if (msg.photo_file_id) {
-                // Link directly to bot start param
                 const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
                 content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
             }
             
-            const html = `
-                <div class="msg ${isMe ? 'me' : 'them'}">
-                    <div class="meta"><span>${displayName}</span><span>${time}</span></div>
-                    <div class="content">${content}</div>
-                </div>`;
+            const div = document.createElement('div');
+            div.className = `msg ${isMe ? 'me' : 'them'}`;
+            div.innerHTML = `
+                <div class="meta"><span>${displayName}</span><span>${time}</span></div>
+                <div class="content">${content}</div>`;
+
+            // FIX: This now works because 'isRealtime' is defined in the arguments
+            if (isRealtime) {
+                div.classList.add('unread'); 
+                observer.observe(div);       
+            }
             
-            container.insertAdjacentHTML('beforeend', html);
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+            container.appendChild(div);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         }
 
         async function init() {
@@ -170,30 +242,14 @@
             const statusBadge = document.getElementById('status-badge');
             
             if (USER_HASH) {
-                // === LIVE MODE ===
-                // 1. Activate Security
                 setupAutoClose(USER_HASH, RIDE_ID);
-                
-                // 2. Update UI (Green Badge)
                 statusBadge.className = 'badge-live';
                 statusBadge.innerText = '🔴 LIVE CONNECTION';
-                
-                // 3. Change Telegram Header Color (The "Pro" Move)
-                if (window.Telegram && window.Telegram.WebApp) {
-                    Telegram.WebApp.setHeaderColor('#1a4d1a'); // Dark Green Header
-                }
+                if (window.Telegram && window.Telegram.WebApp) Telegram.WebApp.setHeaderColor('#1a4d1a');
             } else {
-                // === ARCHIVE MODE ===
-                // 1. No Security (Read Only)
-                
-                // 2. Update UI (Grey Badge)
                 statusBadge.className = 'badge-archive';
-                statusBadge.innerText = '📂 ARCHIVED RECORD';
-                
-                // 3. Change Telegram Header Color
-                if (window.Telegram && window.Telegram.WebApp) {
-                    Telegram.WebApp.setHeaderColor('#000000'); // Black Header
-                }
+                statusBadge.innerText = '📂 ARCHIVED';
+                if (window.Telegram && window.Telegram.WebApp) Telegram.WebApp.setHeaderColor('#000000');
             }
 
 
@@ -219,7 +275,7 @@
               .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'chat_logs', filter: `ride_id=eq.${RIDE_ID}` },
-                (payload) => { appendMessage(payload.new); }
+                (payload) => { appendMessage(payload.new, true); }
               )
               .subscribe();
         }
