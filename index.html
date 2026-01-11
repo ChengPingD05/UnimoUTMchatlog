@@ -53,6 +53,8 @@
             color: var(--hint);
             font-size: 10px;
             margin-bottom: 5px;
+            border-bottom: 1px dashed var(--hint);
+            padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
         }
 
         /* === 📜 LOGS CONTAINER === */
@@ -63,11 +65,6 @@
         #loader {
             position: fixed; top: 40%; left: 0; width: 100%; text-align: center;
             color: var(--hint); font-weight: bold;
-        }
-
-        .terminal-header {
-            border-bottom: 1px dashed var(--hint);
-            padding-bottom: 8px; margin-bottom: 15px; color: var(--hint);
         }
 
         /* 🚀 2. CONSOLE LAYOUT (No Bubbles, Fast Read) */
@@ -131,7 +128,31 @@
             animation: breathing-bg 1.5s infinite ease-in-out;
             border-left: 3px solid #ff4d4d; /* Red border to indicate attention needed */
         }
-        
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: rgba(50, 50, 50, 0.95);
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 2000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px; /* Slide up effect */
+        }
         
     </style>
 </head>
@@ -169,16 +190,15 @@
         
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // Element is on screen.
-                    // Wait 2.5 seconds, then stop breathing.
+                // Only trigger for messages that ARE unread
+                if (entry.isIntersecting && entry.target.classList.contains('unread')) {
                     setTimeout(() => {
                         entry.target.classList.remove('unread');
-                        observer.unobserve(entry.target); // Stop watching this msg
+                        observer.unobserve(entry.target); 
                     }, 2500);
                 }
             });
-        }, { threshold: 0.5 }); // Trigger when 50% of message is visible
+        }, { threshold: 0.5 });
 
         // Force Theme Apply
         if (window.Telegram && window.Telegram.WebApp) {
@@ -190,6 +210,21 @@
             document.documentElement.style.setProperty('--tg-theme-button-color', Telegram.WebApp.buttonColor);
         }
 
+        function showToast() {
+            var x = document.getElementById("toast");
+            x.className = "show";
+            // Hide after 3 seconds
+            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        }
+        
+        window.requestEvidence = function(url) {
+                    // 1. Trigger the bot action in background
+                    Telegram.WebApp.openTelegramLink(url);
+                    
+                    // 2. Show the visual feedback (Do NOT close app)
+                    showToast();
+                };
+        
         // 🚀 FAST RENDERER FUNCTION
         function appendMessage(msg, isRealtime = false) {
             const container = document.getElementById('logs');
@@ -209,7 +244,7 @@
             
             if (msg.photo_file_id) {
                 const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
-                content += `<br><a href="${link}" onclick="Telegram.WebApp.openTelegramLink(this.href); return false;" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id || '?'}</a>`;
+                content += `<br><button onclick="requestEvidence('${link}')" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id || '?'}</button>`;
             }
             
             const div = document.createElement('div');
@@ -281,6 +316,7 @@
               )
               .subscribe();
         }
+
         // 🔌 AUTO-CLOSE FUNCTION (Updated for Switching)
         function setupAutoClose(user_hash, currentRideId) {
             if (!user_hash) return;
@@ -351,5 +387,6 @@
 
         init();
     </script>
+    <div id="toast">📸 Evidence sent to chat!<br>Close this window to view.</div>
 </body>
 </html>
