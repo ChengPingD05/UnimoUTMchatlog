@@ -200,14 +200,16 @@
             let time = "--:--";
             try { 
                 const d = new Date(msg.created_at);
-                time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                        const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+                        const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                        time = `${dateStr} ${timeStr}`;
             } catch(e) {}
             
             let content = (msg.message_content || '').replace(/&/g, "&amp;").replace(/</g, "&lt;");
             
             if (msg.photo_file_id) {
                 const link = `https://t.me/${BOT_HANDLE}?start=log_${msg.log_id || '0'}`;
-                content += `<br><a href="${link}" class="btn-ev">📷 VIEW EVIDENCE</a>`;
+                content += `<br><a href="${link}" onclick="Telegram.WebApp.openTelegramLink(this.href); return false;" class="btn-ev">📷 REQUEST EVIDENCE #${msg.log_id || '?'}</a>`;
             }
             
             const div = document.createElement('div');
